@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret
     volumes:
-    # this mounts the local sql file i.e. init.sql to a location in the container
+      # this mounts the local sql file i.e. init.sql to a location in the container
       - ./source_db_init/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   destination_postgres:
@@ -19,6 +19,8 @@ services:
       - "5434:5432"
     networks:
       - elt_network
+    depends_on:
+      - source_postgres
     environment:
       POSTGRES_DB: destination_db
       POSTGRES_USER: postgres
@@ -32,8 +34,29 @@ services:
     networks:
       - elt_network
     depends_on:
-      - source_postgres
       - destination_postgres
+
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.8.2
+    command:
+      [
+        "run",
+        "--profiles-dir",
+        "/root",
+        "--project-dir",
+        "/dbt"
+      ]
+    networks:
+      - elt_network
+    volumes:
+      - ./custom_postgres:/dbt
+      - ~/.dbt:/root
+    depends_on:
+      elt_script:
+        condition: service_completed_successfully
+    environment:
+      DBT_PROFILE: custom_postgres
+      DBT_TARGET: dev
 
 networks:
   elt_network:
