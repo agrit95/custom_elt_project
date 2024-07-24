@@ -58,6 +58,92 @@ services:
       DBT_PROFILE: custom_postgres
       DBT_TARGET: dev
 
+  # This is for airflow because it needs a database to store its meta data
+  postgres:
+    image: postgres:latest
+    networks:
+      - elt_network
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+  
+  # This service initialize user and the database we created for airflow
+  init-airflow:
+    image: apache/airflow:latest
+    depends_on:
+      - postgres
+    networks:
+      - elt_network
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgres+psycopg2://airflow:airflow@postgres/airflow
+    command: >
+      bash -c "airflow db init &&
+              airflow users create --username airflow --password password --firstname John --lastname Doe --role Admin --email admin@example.com"
+  
+  webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    depends_on:
+      - postgres
+    networks:
+      - elt_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./elt:/opt/airflow/elt
+      - ./custom_postgres:/opt/dbt
+      - ~/.dbt:/root/.dbt
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Local
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgres+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE_FERNET_KEY=_62QZqtxTQjNPD22xd5NWRDdhS2DB_RACA6xvpHvDiM=
+      - AIRFLOW__WEBSERVER__DEFAULT__USER_USERNAME=airflow
+      - AIRFLOW__WEBSERVER__DEFAULT__USER_PASSWORD=password
+      - AIRFLOW__WWW_USER_USERNAME=airflow
+      - AIRFLOW__WWW_USER_PASSWORD=password
+      - AIRFLOW__WEBSERVER__SECRET_KEY=secret
+    ports:
+      - "8080:8080"
+    command: webserver
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    depends_on:
+      - postgres
+    networks:
+      - elt_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./elt:/opt/airflow/elt
+      - ./custom_postgres:/opt/dbt
+      - ~/.dbt:/root/.dbt
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Local
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgres+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE_FERNET_KEY=_62QZqtxTQjNPD22xd5NWRDdhS2DB_RACA6xvpHvDiM=
+      - AIRFLOW__WEBSERVER__DEFAULT__USER_USERNAME=airflow
+      - AIRFLOW__WEBSERVER__DEFAULT__USER_PASSWORD=password
+      - AIRFLOW__WWW_USER_USERNAME=airflow
+      - AIRFLOW__WWW_USER_PASSWORD=password
+      - AIRFLOW__WEBSERVER__SECRET_KEY=secret
+    ports:
+      - "8080:8080"
+    command: webserver
+
+
 networks:
   elt_network:
     driver: bridge
