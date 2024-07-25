@@ -26,37 +26,37 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret
 
-  elt_script:
-    build:
-      context: ./elt
-      dockerfile: Dockerfile
-    command: [ "python", "elt_script.py" ]
-    networks:
-      - elt_network
-    depends_on:
-      - destination_postgres
+  # elt_script:
+  #   build:
+  #     context: ./elt
+  #     dockerfile: Dockerfile
+  #   command: [ "python", "elt_script.py" ]
+  #   networks:
+  #     - elt_network
+  #   depends_on:
+  #     - destination_postgres
 
-  dbt:
-    image: ghcr.io/dbt-labs/dbt-postgres:1.8.2
-    command:
-      [
-        "run",
-        "--profiles-dir",
-        "/root",
-        "--project-dir",
-        "/dbt"
-      ]
-    networks:
-      - elt_network
-    volumes:
-      - ./custom_postgres:/dbt
-      - ~/.dbt:/root
-    depends_on:
-      elt_script:
-        condition: service_completed_successfully
-    environment:
-      DBT_PROFILE: custom_postgres
-      DBT_TARGET: dev
+  # dbt:
+  #   image: ghcr.io/dbt-labs/dbt-postgres:1.8.2
+  #   command:
+  #     [
+  #       "run",
+  #       "--profiles-dir",
+  #       "/root",
+  #       "--project-dir",
+  #       "/dbt"
+  #     ]
+  #   networks:
+  #     - elt_network
+  #   volumes:
+  #     - ./custom_postgres:/dbt
+  #     - ~/.dbt:/root
+  #   depends_on:
+  #     elt_script:
+  #       condition: service_completed_successfully
+  #   environment:
+  #     DBT_PROFILE: custom_postgres
+  #     DBT_TARGET: dev
 
   # This is for airflow because it needs a database to store its meta data
   postgres:
